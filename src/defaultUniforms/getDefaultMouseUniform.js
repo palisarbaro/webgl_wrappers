@@ -1,5 +1,4 @@
 import { uniformTypes } from "../types";
-
 export function getDefaultMouseUniform(element, name = "mouse") {
     let pos = [0, 0];
     const getDefaultValue = () => pos;

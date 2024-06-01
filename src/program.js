@@ -1,7 +1,6 @@
-import { assert, assertVal, assertValIsNotNull } from "./utils/assert";
-import { deepFreeze } from "./utils/deepFreeze";
+import { assert, assertValIsNotNull } from "./utils/assert";
 
-function compileShader(source, type) {
+function createCompileShader(source, type) {
     /**
      * @param {WebGL2RenderingContext} gl
      */
@@ -33,21 +32,20 @@ export function createMakeProgram(vertexShaderSource, fragmentShaderSource, unif
             type: "FRAGMENT_SHADER",
         },
     ];
-    const doCompiles = shaderDefs.map(def => compileShader(def.source, def.type))
+    const doCompiles = shaderDefs.map(def => createCompileShader(def.source, def.type))
     /**
      * @param {WebGL2RenderingContext} gl
-     * @returns {WebGLProgram}
      */
     return (gl) => {
         const program = gl.createProgram()
         doCompiles.map(
             comp => gl.attachShader(program, comp(gl))
         )
- 
+        const createLocationAssert = (uni) => assertValIsNotNull(`Can't find uniform ${uni.name} location. Maybe it's not used in shader?`)
         const getUniformDecription = (uni, index) => ({
             ...uni,
-            location: assertValIsNotNull(`Can't find uniform ${uni.name} location. Maybe it's not used in shader?`)(gl.getUniformLocation(program, uni.name)),
-            index: index
+            index,
+            location: createLocationAssert(uni)(gl.getUniformLocation(program, uni.name)),
         })
         gl.linkProgram(program)
         return {
@@ -72,11 +70,6 @@ const vertices = new Float32Array([
 export function createRunProgram(gl, programInstance) {
     const { program, uniform_descriptions } = programInstance
     return (uniforms) => {
-        let in_textures_idx = 0;
-        function initInTexture(tx) {
-
-            in_textures_idx++;
-        }
         gl.useProgram(program);
 
         const vertexBuffer = gl.createBuffer();
@@ -86,11 +79,12 @@ export function createRunProgram(gl, programInstance) {
         const positionAttribLocation = gl.getAttribLocation(program, 'position');
         gl.vertexAttribPointer(positionAttribLocation, 2, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(positionAttribLocation);
-        for(let uni_descr of uniform_descriptions){
+
+        for (let uni_descr of uniform_descriptions) {
             let uni_name = uni_descr.name
             let uni_type = uni_descr.type
             let uni_value = uniforms[uni_name]
-            assert(uni_value==undefined || typeof uni_descr.getDefaultValue != "function", `${uni_name} ${uni_type.name} uniform is not provided and getDefaultValue function is not provided`)
+            assert(uni_value == undefined || typeof uni_descr.getDefaultValue != "function", `${uni_name} ${uni_type.name} uniform is not provided and getDefaultValue function is not provided`)
             uni_type.bind(gl, uni_descr, uni_value || uni_descr.getDefaultValue())
         }
 
